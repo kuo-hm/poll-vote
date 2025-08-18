@@ -45,18 +45,18 @@ export function Navbar() {
                 Results
               </Button>
             </Link>
-            <Link href="/analytics">
+            {/* <Link href="/analytics">
               <Button variant="ghost" size="sm" className="gap-2">
                 <TrendingUp className="h-4 w-4" />
                 Analytics
               </Button>
-            </Link>
-            <Link href="/create">
+            </Link> */}
+            {/* <Link href="/create">
               <Button variant="ghost" size="sm" className="gap-2">
                 <Plus className="h-4 w-4" />
                 Create
               </Button>
-            </Link>
+            </Link> */}
           </nav>
 
           <div className="flex items-center gap-3">

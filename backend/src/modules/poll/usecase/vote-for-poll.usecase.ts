@@ -31,9 +31,30 @@ export class VoteForPollUseCase {
     }
     
     this.pollEventsUseCase.emitVote({
+      type: 'vote',
       pollId: payload.pollId,
       optionId: payload.optionId,
       votes: votedOption.votes,
+    });
+
+    this.pollEventsUseCase.emitPollUpdate({
+      type: 'poll_update',
+      pollId: payload.pollId,
+      poll: {
+        id: poll.id,
+        title: poll.title,
+        description: poll.description ?? undefined,
+        createdAt: poll.createdAt,
+        isActive: poll.isActive,
+        ttlInMs: poll.ttlInMs,
+        totalVotes: poll._count.votes,
+        options: poll.options.map(option => ({
+          id: option.id,
+          text: option.text,
+          votes: option.votes,
+        })),
+        userVote: null, // We don't send user vote in updates to avoid exposing other users' votes
+      },
     });
   }
 }

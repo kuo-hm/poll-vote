@@ -36,7 +36,29 @@ export class GetPollByIdUseCase {
     if (!poll) {
       throw new NotFoundException('Poll not found');
     }
-    
-    return poll;
+
+    const {
+      id,
+      title,
+      description,
+      createdAt,
+      isActive,
+      ttlInMs,
+      totalVotes,
+      options,
+      userVote
+    } = poll;
+
+    return {
+      id,
+      title,
+      description: description ?? undefined,
+      createdAt,
+      isActive,
+      ttlInMs,
+      totalVotes,
+      options,
+      userVote
+    };
   }
 }

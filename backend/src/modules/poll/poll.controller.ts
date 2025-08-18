@@ -17,8 +17,12 @@ import {
   GetPollStatsUseCase,
   GetPollByIdUseCase,
 } from './usecase';
-import { CreatePollRequestDto, VoteForPollRequestDto, GetPollsRequestDto } from './dto';
-import { RequireXForwardedForGuard } from '../../common/guard';
+import {
+  CreatePollRequestDto,
+  VoteForPollRequestDto,
+  GetPollsRequestDto,
+} from './dto';
+import { CaptureIpGuard } from '../../common/guard';
 import { GetVoterIp } from '../../common/decorator';
 import { filter, map, Observable } from 'rxjs';
 
@@ -38,7 +42,7 @@ export class PollController {
   }
 
   @Post(':pollId/vote/:optionId')
-  @UseGuards(RequireXForwardedForGuard)
+  @UseGuards(CaptureIpGuard)
   async vote(@Param() param: VoteForPollRequestDto, @GetVoterIp() ip: string) {
     await this.voteForPollUseCase.execute({
       ...param,
@@ -47,7 +51,7 @@ export class PollController {
   }
 
   @Get()
-  @UseGuards(RequireXForwardedForGuard)
+  @UseGuards(CaptureIpGuard)
   async getActivePolls(
     @Query() query: GetPollsRequestDto,
     @GetVoterIp() ip: string,
@@ -64,12 +68,21 @@ export class PollController {
     return this.getPollStatsUseCase.execute();
   }
 
+  @Sse('stream')
+  allPollsStream(): Observable<MessageEvent> {
+    return this.pollEventsUseCase.getAllEvents().pipe(
+      map(
+        (event) =>
+          ({
+            data: event,
+          }) as MessageEvent,
+      ),
+    );
+  }
+
   @Get(':pollId')
-  @UseGuards(RequireXForwardedForGuard)
-  async getPollById(
-    @Param('pollId') pollId: string,
-    @GetVoterIp() ip: string,
-  ) {
+  @UseGuards(CaptureIpGuard)
+  async getPollById(@Param('pollId') pollId: string, @GetVoterIp() ip: string) {
     return this.getPollByIdUseCase.execute({
       pollId,
       voterIp: ip,
@@ -79,10 +92,10 @@ export class PollController {
   @Get(':pollId/stream')
   @Sse()
   voteStream(@Param('pollId') pollId: string): Observable<MessageEvent> {
-    return this.pollEventsUseCase.getVoteStream().pipe(
-      filter((event: VoteEvent) => event.pollId === pollId),
+    return this.pollEventsUseCase.getAllEvents().pipe(
+      filter((event) => event.pollId === pollId),
       map(
-        (event: VoteEvent) =>
+        (event) =>
           ({
             data: event,
           }) as MessageEvent,

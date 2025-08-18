@@ -1,10 +1,15 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 
 export const GetVoterIp = createParamDecorator(
-  (data: unknown, ctx: ExecutionContext): string => {
+  (_data: unknown, ctx: ExecutionContext): string => {
     const request = ctx.switchToHttp().getRequest();
-    const ip =
-      request.headers['x-forwarded-for'] || request.socket.remoteAddress;
-    return ip?.toString() || '';
+
+    let ip =
+      request.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+      request.headers['x-real-ip'] ||
+      request.socket?.remoteAddress ||
+      '127.0.0.1';
+
+    return ip;
   },
 );

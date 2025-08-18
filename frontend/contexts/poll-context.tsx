@@ -5,126 +5,153 @@ import {
   useContext,
   useState,
   useEffect,
+  useCallback,
   type ReactNode,
 } from "react";
-import type { Poll, PollContextType } from "@/types/poll";
+import {
+  apiService,
+  type Poll,
+  type PollDetails,
+  type CreatePollRequest,
+} from "@/lib/api";
+import { useSSE } from "@/hooks/use-sse";
+
+interface PollContextType {
+  polls: Poll[];
+  pollDetails: Map<string, PollDetails>;
+  stats: { activePolls: number; totalVotes: number } | null;
+  isLoading: boolean;
+  error: string | null;
+  createPoll: (data: CreatePollRequest) => Promise<void>;
+  vote: (pollId: string, optionId: string) => Promise<void>;
+  refreshPolls: () => Promise<void>;
+  getPollDetails: (pollId: string) => Promise<void>;
+}
 
 const PollContext = createContext<PollContextType | undefined>(undefined);
 
-// Mock data for demonstration
-const initialPolls: Poll[] = [
-  {
-    id: "1",
-    title: "What's your favorite programming language?",
-    description: "Help us understand the community preferences",
-    options: [
-      { id: "1a", text: "JavaScript", votes: 45 },
-      { id: "1b", text: "Python", votes: 38 },
-      { id: "1c", text: "TypeScript", votes: 52 },
-      { id: "1d", text: "Go", votes: 23 },
-    ],
-    totalVotes: 158,
-    createdAt: new Date("2024-01-15"),
-    isActive: true,
-  },
-  {
-    id: "2",
-    title: "Best time for team meetings?",
-    description: "Let's find a time that works for everyone",
-    options: [
-      { id: "2a", text: "9:00 AM", votes: 12 },
-      { id: "2b", text: "2:00 PM", votes: 28 },
-      { id: "2c", text: "4:00 PM", votes: 15 },
-    ],
-    totalVotes: 55,
-    createdAt: new Date("2024-01-16"),
-    isActive: true,
-  },
-];
-
 export function PollProvider({ children }: { children: ReactNode }) {
-  const [polls, setPolls] = useState<Poll[]>(initialPolls);
+  const [polls, setPolls] = useState<Poll[]>([]);
+  const [pollDetails, setPollDetails] = useState<Map<string, PollDetails>>(
+    new Map()
+  );
+  const [stats, setStats] = useState<{
+    activePolls: number;
+    totalVotes: number;
+  } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Simulate real-time updates
+  // SSE connection for real-time updates
+  const { events, isConnected } = useSSE("/poll/stream");
+
+  // Handle real-time events
   useEffect(() => {
-    const interval = setInterval(() => {
-      setPolls((currentPolls) =>
-        currentPolls
-          .map((poll) => ({
-            ...poll,
-            options: poll.options.map((option) => ({
-              ...option,
-              // Randomly add votes to simulate real-time activity
-              votes: Math.random() > 0.95 ? option.votes + 1 : option.votes,
-            })),
-          }))
-          .map((poll) => ({
-            ...poll,
-            totalVotes: poll.options.reduce(
-              (sum, option) => sum + option.votes,
-              0
-            ),
-          }))
-      );
-    }, 2000); // Update every 2 seconds
+    events.forEach((event) => {
+      if (event.type === "poll_update") {
+        // Update poll details
+        setPollDetails((prev) => new Map(prev).set(event.pollId, event.poll));
 
-    return () => clearInterval(interval);
+        // Update polls list if the poll exists there
+        setPolls((prev) =>
+          prev.map((poll) =>
+            poll.id === event.pollId
+              ? {
+                  ...poll,
+                  totalVotes: event.poll.totalVotes,
+                }
+              : poll
+          )
+        );
+      }
+    });
+  }, [events]);
+
+  const refreshPolls = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const response = await apiService.getPolls(1, true);
+      setPolls(response.items);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fetch polls");
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
-  const createPoll = (
-    title: string,
-    description: string,
-    optionTexts: string[]
-  ) => {
-    setIsLoading(true);
+  const getPollStats = useCallback(async () => {
+    try {
+      const statsData = await apiService.getPollStats();
+      setStats(statsData);
+    } catch (err) {
+      console.error("Failed to fetch stats:", err);
+    }
+  }, []);
 
-    // Simulate API delay
-    setTimeout(() => {
-      const newPoll: Poll = {
-        id: Date.now().toString(),
-        title,
-        description,
-        options: optionTexts.map((text, index) => ({
-          id: `${Date.now()}-${index}`,
-          text,
-          votes: 0,
-        })),
-        totalVotes: 0,
-        createdAt: new Date(),
-        isActive: true,
-      };
+  const getPollDetails = useCallback(async (pollId: string) => {
+    try {
+      const details = await apiService.getPollById(pollId);
+      setPollDetails((prev) => new Map(prev).set(pollId, details));
+    } catch (err) {
+      console.error("Failed to fetch poll details:", err);
+    }
+  }, []);
 
-      setPolls((prev) => [newPoll, ...prev]);
-      setIsLoading(false);
-    }, 1000);
-  };
+  const createPoll = useCallback(
+    async (data: CreatePollRequest) => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        await apiService.createPoll(data);
+        await refreshPolls();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to create poll");
+        throw err;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [refreshPolls]
+  );
 
-  const vote = (pollId: string, optionId: string) => {
-    setPolls((currentPolls) =>
-      currentPolls.map((poll) => {
-        if (poll.id === pollId) {
-          const updatedOptions = poll.options.map((option) =>
-            option.id === optionId
-              ? { ...option, votes: option.votes + 1 }
-              : option
-          );
-          return {
-            ...poll,
-            options: updatedOptions,
-            totalVotes: updatedOptions.reduce(
-              (sum, option) => sum + option.votes,
-              0
-            ),
-          };
-        }
-        return poll;
-      })
-    );
-  };
+  const vote = useCallback(async (pollId: string, optionId: string) => {
+    try {
+      setError(null);
+      await apiService.vote(pollId, optionId);
+
+      // Optimistically update the poll
+      setPolls((prev) =>
+        prev.map((poll) =>
+          poll.id === pollId ? { ...poll, userVote: optionId } : poll
+        )
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to vote");
+      throw err;
+    }
+  }, []);
+
+  // Initial data fetch
+  useEffect(() => {
+    refreshPolls();
+    getPollStats();
+  }, [refreshPolls, getPollStats]);
 
   return (
-    <PollContext.Provider value={{ polls, createPoll, vote, isLoading }}>
+    <PollContext.Provider
+      value={{
+        polls,
+        pollDetails,
+        stats,
+        isLoading,
+        error,
+        createPoll,
+        vote,
+        refreshPolls,
+        getPollDetails,
+      }}
+    >
       {children}
     </PollContext.Provider>
   );

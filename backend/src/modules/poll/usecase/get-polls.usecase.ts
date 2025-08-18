@@ -7,7 +7,7 @@ export interface GetPollsRequest {
   isActive?: boolean;
 }
 
-export interface PollOption {
+ interface PollOption {
   id: string;
   text: string;
   votes: number;

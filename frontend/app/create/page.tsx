@@ -1,8 +1,14 @@
-"use client"
+"use client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { PollTemplates } from "@/components/poll-templates"
-import { CreatePollDialog } from "@/components/create-poll-dialog"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { PollTemplates } from "@/components/poll-templates";
+import { CreatePollDialog } from "@/components/create-poll-dialog";
 
 export default function CreatePage() {
   return (
@@ -10,7 +16,9 @@ export default function CreatePage() {
       <div className="space-y-6">
         <div>
           <h2 className="text-2xl font-bold">Create New Poll</h2>
-          <p className="text-muted-foreground">Start a new poll or use one of our templates</p>
+          <p className="text-muted-foreground">
+            Start a new poll or use one of our templates
+          </p>
         </div>
 
         <PollTemplates />
@@ -20,7 +28,10 @@ export default function CreatePage() {
           <Card>
             <CardHeader>
               <CardTitle>Create from Scratch</CardTitle>
-              <CardDescription>Build a completely custom poll with your own questions and options</CardDescription>
+              <CardDescription>
+                Build a completely custom poll with your own questions and
+                options
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <CreatePollDialog />
@@ -29,5 +40,5 @@ export default function CreatePage() {
         </div>
       </div>
     </div>
-  )
+  );
 }

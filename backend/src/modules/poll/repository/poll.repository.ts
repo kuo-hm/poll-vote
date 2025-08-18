@@ -34,7 +34,14 @@ export class PollRepository {
   async getPollById(pollId: string) {
     return this.prisma.poll.findUnique({
       where: { id: pollId },
-      include: { options: true },
+      include: { 
+        options: true,
+        _count: {
+          select: {
+            votes: true,
+          },
+        },
+      },
     });
   }
 
@@ -129,7 +136,7 @@ export class PollRepository {
       items: polls.map(poll => ({
         id: poll.id,
         title: poll.title,
-        description: poll.description,
+        description: poll.description ?? undefined,
         createdAt: poll.createdAt,
         totalVotes: poll._count.votes,
         userVote: poll.votes.length > 0 ? poll.votes[0].optionId : null,

@@ -1,28 +1,71 @@
-"use client"
+"use client";
 
-import type React from "react"
-
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Clock, Users } from "lucide-react"
-import type { Poll } from "@/types/poll"
-import { formatDistanceToNow } from "date-fns"
+import type React from "react";
+import { useEffect, useState } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Clock, Users, Check } from "lucide-react";
+import type { Poll, PollDetails } from "@/types/poll";
+import { formatDistanceToNow } from "date-fns";
+import { usePollById, useVote } from "@/hooks/use-polls";
 
 interface PollCardProps {
-  poll: Poll
-  onVote?: (pollId: string, optionId: string) => void
-  showResults?: boolean
-  children?: React.ReactNode
+  poll: Poll;
+  showResults?: boolean;
+  children?: React.ReactNode;
 }
 
-export function PollCard({ poll, onVote, showResults = false, children }: PollCardProps) {
+export function PollCard({
+  poll,
+  showResults = false,
+  children,
+}: PollCardProps) {
+  const { data: details, isLoading: isLoadingDetails } = usePollById(poll.id);
+  const voteMutation = useVote();
+
+  const handleVote = async (optionId: string) => {
+    if (voteMutation.isPending || poll.userVote) return;
+
+    try {
+      await voteMutation.mutateAsync({ pollId: poll.id, optionId });
+    } catch (error) {
+      console.error("Failed to vote:", error);
+    }
+  };
+
   const getPercentage = (votes: number) => {
-    if (poll.totalVotes === 0) return 0
-    return Math.round((votes / poll.totalVotes) * 100)
-  }
+    if (!details || details.totalVotes === 0) return 0;
+    return Math.round((votes / details.totalVotes) * 100);
+  };
 
   const getMaxVotes = () => {
-    return Math.max(...poll.options.map((option) => option.votes))
+    if (!details) return 0;
+    return Math.max(...details.options.map((option) => option.votes));
+  };
+
+  if (isLoadingDetails || !details) {
+    return (
+      <Card className="w-full">
+        <CardContent className="p-6">
+          <div className="animate-pulse">
+            <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
+            <div className="h-3 bg-muted rounded w-1/2 mb-4"></div>
+            <div className="space-y-2">
+              <div className="h-3 bg-muted rounded"></div>
+              <div className="h-3 bg-muted rounded"></div>
+              <div className="h-3 bg-muted rounded"></div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (
@@ -30,13 +73,20 @@ export function PollCard({ poll, onVote, showResults = false, children }: PollCa
       <CardHeader className="pb-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
-            <CardTitle className="text-lg font-semibold leading-tight mb-2">{poll.title}</CardTitle>
+            <CardTitle className="text-lg font-semibold leading-tight mb-2">
+              {poll.title}
+            </CardTitle>
             {poll.description && (
-              <CardDescription className="text-sm text-muted-foreground">{poll.description}</CardDescription>
+              <CardDescription className="text-sm text-muted-foreground">
+                {poll.description}
+              </CardDescription>
             )}
           </div>
-          <Badge variant={poll.isActive ? "default" : "secondary"} className="shrink-0">
-            {poll.isActive ? "Active" : "Closed"}
+          <Badge
+            variant={details.isActive ? "default" : "secondary"}
+            className="shrink-0"
+          >
+            {details.isActive ? "Active" : "Closed"}
           </Badge>
         </div>
 
@@ -47,21 +97,44 @@ export function PollCard({ poll, onVote, showResults = false, children }: PollCa
           </div>
           <div className="flex items-center gap-1">
             <Clock className="h-4 w-4" />
-            <span>{formatDistanceToNow(poll.createdAt, { addSuffix: true })}</span>
+            <span>
+              {formatDistanceToNow(poll.createdAt, { addSuffix: true })}
+            </span>
           </div>
         </div>
       </CardHeader>
 
       <CardContent className="pt-0">
         <div className="space-y-3">
-          {poll.options.map((option) => {
-            const percentage = getPercentage(option.votes)
-            const isHighest = option.votes === getMaxVotes() && poll.totalVotes > 0
+          {details.options.map((option) => {
+            const percentage = getPercentage(option.votes);
+            const isHighest =
+              option.votes === getMaxVotes() && details.totalVotes > 0;
+            const isVoted = poll.userVote === option.id;
 
             return (
-              <div key={option.id} className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium text-foreground">{option.text}</span>
+              <div key={option.id} className="space-y-2 ">
+                <div className="flex items-center justify-between text-sm ">
+                  <span
+                    className={`font-medium text-foreground flex items-center gap-2  w-full ${
+                      !poll.userVote && "hover:bg-gray-500 rounded-full"
+                    }`}
+                  >
+                    {!poll.userVote && details.isActive ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start "
+                        onClick={() => handleVote(option.id)}
+                        disabled={voteMutation.isPending}
+                      >
+                        Vote for {option.text}
+                      </Button>
+                    ) : (
+                      option.text
+                    )}
+                    {isVoted && <Check className="h-4 w-4 text-green-500" />}
+                  </span>
                   {showResults && (
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <span>{option.votes} votes</span>
@@ -81,12 +154,12 @@ export function PollCard({ poll, onVote, showResults = false, children }: PollCa
                   </div>
                 )}
               </div>
-            )
+            );
           })}
         </div>
 
         {children && <div className="mt-6 pt-4 border-t">{children}</div>}
       </CardContent>
     </Card>
-  )
+  );
 }

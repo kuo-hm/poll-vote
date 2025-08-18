@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
+  ArrayMinSize,
   IsArray,
   IsNotEmpty,
   IsNumber,
@@ -42,6 +43,6 @@ export class CreatePollRequestDto {
   })
   @IsString({ each: true })
   @IsArray()
-  @MinLength(2)
+  @ArrayMinSize(2)
   options: string[];
 }

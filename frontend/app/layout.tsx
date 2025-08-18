@@ -4,9 +4,10 @@ import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 import { ThemeProvider } from "next-themes";
-import { PollProvider } from "@/contexts/poll-context";
+import { QueryProvider } from "@/providers/query-provider";
 import { Toaster } from "@/components/ui/toaster";
 import { Navbar } from "@/components/navbar";
+import { PollProvider } from "../contexts/poll-context";
 
 export const metadata: Metadata = {
   title: "PollVote - Real-Time Polling App",
@@ -38,13 +39,17 @@ html {
           enableSystem
           disableTransitionOnChange
         >
-          <PollProvider>
-            <div className="min-h-screen bg-background">
-              <Navbar />
-              {children}
-            </div>
+          <QueryProvider>
+            <PollProvider>
+              {" "}
+              <div className="min-h-screen bg-background">
+                <Navbar />
+                {children}
+              </div>
+            </PollProvider>
+
             <Toaster />
-          </PollProvider>
+          </QueryProvider>
         </ThemeProvider>
       </body>
     </html>
